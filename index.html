@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SinalVIP Futebol</title>
+<meta name="theme-color" content="#0b1220">
+
+<!--
+APP PREPARADO PARA NOTIFICAÇÕES FUTURAS
+(OneSignal / Firebase podem ser integrados aqui futuramente)
+-->
+
+<style>
+:root{
+  --bg:#070b14;
+  --panel:#0b1220;
+  --card:#0f1a2f;
+  --accent:#00e38c;
+  --warn:#ffcc00;
+  --danger:#ff4d5e;
+  --muted:#9aa4bf;
+  --line:#1f2b44;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto;
+  background:var(--bg);
+  color:#fff;
+}
+header{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background:linear-gradient(180deg,#0b1220,#070b14);
+  padding:14px;
+  border-bottom:1px solid var(--line);
+}
+h1{margin:0;font-size:16px}
+.tabs{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+}
+.tab{
+  padding:8px 12px;
+  background:#111c33;
+  border-radius:10px;
+  font-weight:800;
+  font-size:13px;
+  cursor:pointer;
+}
+.tab.active{
+  background:var(--accent);
+  color:#000;
+}
+.container{
+  padding:12px 12px 90px;
+}
+.section{
+  margin-top:16px;
+}
+.country{
+  font-weight:900;
+  font-size:13px;
+  margin:12px 0 6px;
+}
+.league{
+  font-size:12px;
+  color:var(--muted);
+  margin:6px 0;
+}
+.list{
+  background:var(--card);
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid var(--line);
+}
+.row{
+  display:grid;
+  grid-template-columns:64px 1fr 18px;
+  gap:10px;
+  align-items:center;
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  cursor:pointer;
+}
+.row:last-child{border-bottom:none}
+.time{font-weight:800}
+.teams{font-weight:900}
+.chev{opacity:.6}
+
+/* Modal */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:none;
+  align-items:flex-end;
+  z-index:20;
+}
+.modal.show{display:flex}
+.sheet{
+  width:100%;
+  background:var(--panel);
+  border-radius:16px 16px 0 0;
+  padding:14px;
+  border-top:1px solid var(--line);
+}
+.sheet h2{margin:0 0 6px;font-size:16px}
+.meta{font-size:12px;color:var(--muted)}
+.cards{display:grid;gap:10px;margin-top:10px}
+.sig{
+  padding:12px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:var(--card);
+}
+.sig.ap{border-color:rgba(0,227,140,.4);background:rgba(0,227,140,.12)}
+.sig.rk{border-color:rgba(255,204,0,.4);background:rgba(255,204,0,.12)}
+.sig.ng{border-color:rgba(255,77,94,.4);background:rgba(255,77,94,.12)}
+.sig b{font-size:14px}
+.sig .p{font-size:12px;color:var(--muted);margin-top:4px}
+
+.btn{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  font-weight:900;
+  margin-top:10px;
+}
+.primary{background:var(--accent);color:#000}
+.ghost{background:#111c33;color:#fff}
+input{
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:none;
+  margin-top:8px;
+}
+
+.whatsapp{
+  position:fixed;
+  bottom:18px;
+  right:18px;
+  background:#25d366;
+  color:#fff;
+  padding:14px;
+  border-radius:50%;
+  font-size:22px;
+  text-decoration:none;
+  z-index:30;
+}
+.footer{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  background:linear-gradient(180deg,rgba(7,11,20,0),rgba(7,11,20,.95));
+  border-top:1px solid var(--line);
+  padding:10px 12px;
+  font-size:11px;
+  color:var(--muted);
+  text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>⚽ SinalVIP Futebol</h1>
+  <div class="tabs">
+    <div class="tab active" data-tab="rec">⭐ Recomendações</div>
+    <div class="tab" data-tab="today">🕒 Hoje</div>
+    <div class="tab" data-tab="tomorrow">📅 Amanhã</div>
+    <div class="tab" data-tab="vip">🔒 VIP</div>
+  </div>
+</header>
+
+<div class="container" id="app">Carregando jogos...</div>
+
+<a class="whatsapp" href="https://wa.me/5517996534170" target="_blank">💬</a>
+
+<div class="footer">
+Conteúdo informativo. Não garantimos resultados financeiros.
+</div>
+
+<div class="modal" id="modal">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script>
+/* CONFIG */
+const API_KEY = "d64edd642b2c23ae92925c20baf9e35c";
+const VIP_PASSWORD = "vip1990";
+const PAY_LINK = "https://mpago.li/17S2rx1";
+
+/* STATE */
+let fixtures=[];
+let currentTab="rec";
+
+/* VIP */
+function isVIP(){return localStorage.getItem("VIP_ACCESS")==="true";}
+
+/* TABS */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    currentTab=t.dataset.tab;
+    render();
+  };
+});
+
+/* LOAD GAMES (HOJE + AMANHÃ, NUNCA VAZIO) */
+async function loadGames(){
+  const today=new Date();
+  const tomorrow=new Date();
+  tomorrow.setDate(today.getDate()+1);
+
+  const from=today.toISOString().slice(0,10);
+  const to=tomorrow.toISOString().slice(0,10);
+
+  const res=await fetch(
+    `https://v3.football.api-sports.io/fixtures?from=${from}&to=${to}`,
+    {headers:{"x-apisports-key":API_KEY}}
+  );
+  const data=await res.json();
+  fixtures=data.response||[];
+  render();
+}
+
+/* GROUP */
+function groupBy(arr,fn){
+  return arr.reduce((m,x)=>{const k=fn(x);(m[k]=m[k]||[]).push(x);return m;},{});
+}
+
+/* SIGNAL ENGINE (COERENTE E VENDÁVEL) */
+function signals(){
+  const v=60+Math.floor(Math.random()*20);
+  const o=58+Math.floor(Math.random()*22);
+  const a=56+Math.floor(Math.random()*22);
+  return [
+    {t:"Vitória do favorito",c:v,s:v>=72?"ap":v>=66?"rk":"ng"},
+    {t:"Over 2.5 gols",c:o,s:o>=70?"ap":o>=64?"rk":"ng"},
+    {t:"Ambas Marcam",c:a,s:a>=68?"ap":a>=62?"rk":"ng"}
+  ];
+}
+
+/* RENDER LIST */
+function render(){
+  const app=document.getElementById("app");
+  if(!fixtures.length){
+    app.innerHTML="<div class='meta'>Sem jogos disponíveis.</div>";
+    return;
+  }
+
+  let list=fixtures;
+
+  if(currentTab==="today"){
+    list=fixtures.filter(f=>new Date(f.fixture.date).toDateString()===new Date().toDateString());
+  }
+  if(currentTab==="tomorrow"){
+    const t=new Date();t.setDate(t.getDate()+1);
+    list=fixtures.filter(f=>new Date(f.fixture.date).toDateString()===t.toDateString());
+  }
+  if(currentTab==="rec"){
+    list=fixtures.slice(0,10);
+  }
+  if(currentTab==="vip"){
+    app.innerHTML=`
+      <div class="sheet">
+        <h2>Área VIP</h2>
+        <p>Acesso completo a todos os palpites profissionais.</p>
+        <a href="${PAY_LINK}" target="_blank">
+          <button class="btn primary">💳 Assinar VIP – R$ 19,90</button>
+        </a>
+        <input id="pass" placeholder="Digite a senha VIP">
+        <button class="btn ghost" onclick="unlock()">Desbloquear</button>
+        <div id="msg" class="meta"></div>
+      </div>`;
+    return;
+  }
+
+  const byCountry=groupBy(list,f=>f.league.country||"Outros");
+  let html="";
+  Object.keys(byCountry).sort().forEach(c=>{
+    html+=`<div class="section"><div class="country">${c}</div>`;
+    const byLeague=groupBy(byCountry[c],f=>f.league.name);
+    Object.keys(byLeague).sort().forEach(l=>{
+      html+=`<div class="league">🏆 ${l}</div><div class="list">`;
+      byLeague[l].sort((a,b)=>new Date(a.fixture.date)-new Date(b.fixture.date)).forEach(f=>{
+        const h=new Date(f.fixture.date).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+        html+=`
+        <div class="row" onclick='openGame(${JSON.stringify(f).replace(/'/g,"&#39;")})'>
+          <div class="time">${h}</div>
+          <div class="teams">${f.teams.home.name} <span style="opacity:.5">x</span> ${f.teams.away.name}</div>
+          <div class="chev">›</div>
+        </div>`;
+      });
+      html+=`</div>`;
+    });
+    html+=`</div>`;
+  });
+  app.innerHTML=html;
+}
+
+/* MODAL */
+function openGame(f){
+  const modal=document.getElementById("modal");
+  const sheet=document.getElementById("sheet");
+  const when=new Date(f.fixture.date).toLocaleString("pt-BR");
+
+  if(!isVIP()){
+    sheet.innerHTML=`
+      <h2>${f.teams.home.name} x ${f.teams.away.name}</h2>
+      <div class="meta">${f.league.name} • ${when}</div>
+      <div class="cards">
+        <div class="sig rk">
+          <b>🔒 Conteúdo VIP</b>
+          <div class="p">Para acessar os palpites é necessário assinar.</div>
+        </div>
+      </div>
+      <a href="${PAY_LINK}" target="_blank"><button class="btn primary">Assinar VIP</button></a>
+      <input id="pass" placeholder="Senha VIP">
+      <button class="btn ghost" onclick="unlock()">Desbloquear</button>
+      <div id="msg" class="meta"></div>`;
+  }else{
+    const s=signals();
+    sheet.innerHTML=`
+      <h2>${f.teams.home.name} x ${f.teams.away.name}</h2>
+      <div class="meta">${f.league.name} • ${when}</div>
+      <div class="cards">
+        ${s.map(x=>`
+          <div class="sig ${x.s}">
+            <b>${x.t}</b>
+            <div class="p">Confiança: ${x.c}%</div>
+          </div>`).join("")}
+      </div>
+      <button class="btn ghost" onclick="closeModal()">Fechar</button>`;
+  }
+  modal.classList.add("show");
+}
+function closeModal(){document.getElementById("modal").classList.remove("show");}
+document.getElementById("modal").onclick=e=>{if(e.target.id==="modal")closeModal();}
+
+/* UNLOCK */
+function unlock(){
+  const p=document.getElementById("pass").value;
+  const m=document.getElementById("msg");
+  if(p===VIP_PASSWORD){
+    localStorage.setItem("VIP_ACCESS","true");
+    m.style.color=varAccent="#00e38c";
+    m.textContent="VIP ativado! Abra o jogo novamente.";
+  }else{
+    m.style.color="#ff4d5e";
+    m.textContent="Senha incorreta.";
+  }
+}
+
+loadGames();
+</script>
+</body>
+</html>
